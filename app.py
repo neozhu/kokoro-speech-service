@@ -69,9 +69,16 @@ async def lifespan(app: FastAPI):
     concurrency = _env_int("TTS_CONCURRENCY", 1)
 
     logger.info("Loading Kokoro model", extra={"model_path": model_path, "voices_path": voices_path})
-    if not Path(model_path).is_file() or not Path(voices_path).is_file():
-        logger.error("Kokoro model files are not configured or missing")
-        raise RuntimeError("Kokoro model files are not configured or missing")
+    missing_paths = [path for path in (model_path, voices_path) if not Path(path).is_file()]
+    if missing_paths:
+        missing = ", ".join(missing_paths)
+        message = (
+            "Kokoro model files are missing: "
+            f"{missing}. For Docker Compose, put kokoro-v1.0.onnx and voices-v1.0.bin "
+            "in ./models on the host or run ./scripts/download-models.sh before docker compose up."
+        )
+        logger.error(message)
+        raise RuntimeError(message)
 
     cache_dir.mkdir(parents=True, exist_ok=True)
     state.model = Kokoro(model_path, voices_path)

@@ -26,12 +26,13 @@ A lightweight FastAPI backend for generating WAV text-to-speech audio with Kokor
 
 ## Running locally
 
-Install dependencies, place the Kokoro model files in `./models`, and start Uvicorn:
+Install dependencies, download the Kokoro model files into `./models`, and start Uvicorn:
 
 ```bash
 python -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
+./scripts/download-models.sh
 export TTS_API_KEY=your-long-random-secret
 export KOKORO_MODEL_PATH="$PWD/models/kokoro-v1.0.onnx"
 export KOKORO_VOICES_PATH="$PWD/models/voices-v1.0.bin"
@@ -68,7 +69,15 @@ curl -X POST http://localhost:48731/v1/audio/speech \
 ```bash
 cp .env.example .env
 # edit .env and set TTS_API_KEY
-mkdir -p models cache
-# add kokoro-v1.0.onnx and voices-v1.0.bin to ./models
+mkdir -p cache
+./scripts/download-models.sh
+docker compose up --build
+```
+
+The compose file mounts `./models` from the host into `/app/models` inside the container. If startup fails with `Kokoro model files are missing`, verify these files exist on the host before starting Docker:
+
+```bash
+./scripts/download-models.sh
+find models -maxdepth 1 -type f -name 'kokoro-v1.0.onnx' -o -name 'voices-v1.0.bin'
 docker compose up --build
 ```
