@@ -1,0 +1,17 @@
+services:
+  kokoro-tts:
+    build: .
+    container_name: kokoro-tts
+    ports:
+      - "48731:48731"
+    volumes:
+      - ./models:/app/models:ro
+      - ./cache:/app/cache
+    environment:
+      TTS_API_KEY: "${TTS_API_KEY}"
+      KOKORO_MODEL_PATH: "/app/models/kokoro-v1.0.onnx"
+      KOKORO_VOICES_PATH: "/app/models/voices-v1.0.bin"
+      TTS_CACHE_DIR: "/app/cache"
+      TTS_CONCURRENCY: "1"
+      OMP_NUM_THREADS: "4"
+    restart: unless-stopped
