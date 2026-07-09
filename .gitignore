@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Kokoro Speech Service runtime data
+.env
+cache/*
+!cache/.gitkeep
+models/*
+!models/.gitkeep
