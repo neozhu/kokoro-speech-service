@@ -36,7 +36,7 @@ export TTS_API_KEY=your-long-random-secret
 export KOKORO_MODEL_PATH="$PWD/models/kokoro-v1.0.onnx"
 export KOKORO_VOICES_PATH="$PWD/models/voices-v1.0.bin"
 export TTS_CACHE_DIR="$PWD/cache"
-uvicorn app:app --host 0.0.0.0 --port 8880 --workers 1
+uvicorn app:app --host 0.0.0.0 --port 48731 --workers 1
 ```
 
 ## API
@@ -44,13 +44,13 @@ uvicorn app:app --host 0.0.0.0 --port 8880 --workers 1
 ### Health
 
 ```bash
-curl http://localhost:8880/health
+curl http://localhost:48731/health
 ```
 
 ### Generate speech
 
 ```bash
-curl -X POST http://localhost:8880/v1/audio/speech \
+curl -X POST http://localhost:48731/v1/audio/speech \
   -H "Authorization: Bearer $TTS_API_KEY" \
   -H "Content-Type: application/json" \
   -o speech.wav \

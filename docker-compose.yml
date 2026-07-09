@@ -3,7 +3,7 @@ services:
     build: .
     container_name: kokoro-tts
     ports:
-      - "8880:8880"
+      - "48731:48731"
     volumes:
       - ./models:/app/models:ro
       - ./cache:/app/cache
