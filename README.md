@@ -1,6 +1,6 @@
 # Kokoro Speech Service
 
-A lightweight FastAPI backend for generating WAV text-to-speech audio with Kokoro-ONNX.
+A lightweight FastAPI backend for generating WAV text-to-speech audio with Kokoro-ONNX 0.6.1.
 
 ## Features
 
@@ -9,6 +9,7 @@ A lightweight FastAPI backend for generating WAV text-to-speech audio with Kokor
 - Static bearer-token API key authentication via `TTS_API_KEY`.
 - WAV responses with `X-TTS-Cache: HIT | MISS` cache metadata.
 - Local file cache with atomic temporary-file writes.
+- Structured, engine-versioned cache keys and deduplication of identical in-flight requests within one worker.
 - Startup-time Kokoro model loading so requests reuse one in-memory model.
 - Async semaphore-based CPU concurrency control via `TTS_CONCURRENCY`.
 - Docker and Docker Compose deployment files.
@@ -74,6 +75,14 @@ mkdir -p cache
 docker compose up --build
 ```
 
+After upgrading, rebuild and recreate the service with `docker compose up -d --build`.
+The Docker image uses Python 3.12, within Kokoro-ONNX 0.6.1's supported Python range (3.10–3.13).
+
+Cache keys include all speech parameters and the installed Kokoro-ONNX version. Replacing model or
+voices files without changing the engine version requires clearing cached WAV files while the
+service is stopped. Identical requests share one generation within the configured single worker;
+different requests can still generate concurrently up to `TTS_CONCURRENCY`.
+
 The compose file mounts `./models` from the host into `/app/models` inside the container. If startup fails with `Kokoro model files are missing`, verify these files exist on the host before starting Docker:
 
 ```bash
@@ -81,3 +90,28 @@ The compose file mounts `./models` from the host into `/app/models` inside the c
 find models -maxdepth 1 -type f -name 'kokoro-v1.0.onnx' -o -name 'voices-v1.0.bin'
 docker compose up --build
 ```
+
+## GHCR images
+
+The CI workflow builds a Linux AMD64 image and publishes it to
+`ghcr.io/neozhu/kokoro-speech-service` after the Python checks pass:
+
+- Pushes to `main` publish only the `latest` image tag.
+- Pushing a `v*` Git tag also publishes only `latest`.
+- Pull requests and pushes to `master` or `work` validate the build without publishing.
+- The workflow can also be run manually; publishing is enabled only for the default branch or a `v*` tag.
+
+Publishing uses the built-in `GITHUB_TOKEN` with `packages: write`; no additional secret is needed.
+For anonymous pulls, set the package visibility to public in GitHub Packages after its first publication.
+
+```bash
+docker pull ghcr.io/neozhu/kokoro-speech-service:latest
+```
+
+Model files and generated audio are excluded from the build context. Continue mounting `/app/models`
+and `/app/cache` and supplying `TTS_API_KEY` when running the image, as in the Compose configuration.
+
+## Cache regression tests
+
+With the dependencies installed, run `python -m unittest discover -s tests -v`.
+These tests use a fake synthesis model and real WAV writes; model files are not required.

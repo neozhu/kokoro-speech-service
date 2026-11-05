@@ -3,13 +3,16 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import json
 import logging
 import os
 import tempfile
 import time
 from contextlib import asynccontextmanager
+from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated, Literal
+from weakref import WeakValueDictionary
 
 import anyio
 import soundfile as sf
@@ -25,6 +28,7 @@ DEFAULT_MODEL_PATH = "/app/models/kokoro-v1.0.onnx"
 DEFAULT_VOICES_PATH = "/app/models/voices-v1.0.bin"
 DEFAULT_CACHE_DIR = "/app/cache"
 MAX_INPUT_LENGTH = 3000
+KOKORO_VERSION = version("kokoro-onnx")
 
 
 class SpeechRequest(BaseModel):
@@ -45,6 +49,9 @@ class TTSState:
     model: Kokoro | None = None
     semaphore: asyncio.Semaphore | None = None
     cache_dir: Path | None = None
+
+    def __init__(self) -> None:
+        self.cache_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 
 
 state = TTSState()
@@ -109,7 +116,12 @@ def require_api_key(authorization: Annotated[str | None, Header()] = None) -> No
 
 
 def cache_key(request: SpeechRequest) -> str:
-    payload = f"{request.input}{request.voice}{request.speed}{request.lang}{request.response_format}"
+    payload = json.dumps(
+        {"engine_version": KOKORO_VERSION, "request": request.model_dump()},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -149,15 +161,17 @@ async def create_speech(request: SpeechRequest) -> Response:
         logger.info("TTS cache HIT", extra={"generation_time": 0.0})
         return FileResponse(audio_path, media_type="audio/wav", headers={"X-TTS-Cache": "HIT"})
 
-    async with state.semaphore:
+    cache_lock = state.cache_locks.setdefault(audio_path.stem, asyncio.Lock())
+    async with cache_lock:
         if audio_path.exists():
             logger.info("TTS cache HIT", extra={"generation_time": 0.0})
             return FileResponse(audio_path, media_type="audio/wav", headers={"X-TTS-Cache": "HIT"})
-        try:
-            await anyio.to_thread.run_sync(_write_wav, audio_path, request.input, request.voice, request.speed, request.lang)
-        except Exception as exc:
-            logger.exception("TTS generation failed")
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="TTS generation failed") from exc
+        async with state.semaphore:
+            try:
+                await anyio.to_thread.run_sync(_write_wav, audio_path, request.input, request.voice, request.speed, request.lang)
+            except Exception as exc:
+                logger.exception("TTS generation failed")
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="TTS generation failed") from exc
 
     elapsed = time.perf_counter() - start
     logger.info("TTS cache MISS", extra={"generation_time": elapsed})
