@@ -14,6 +14,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py ./
+COPY scripts/download-models.sh ./scripts/download-models.sh
 RUN mkdir -p /app/models /app/cache
 
 EXPOSE 48731
