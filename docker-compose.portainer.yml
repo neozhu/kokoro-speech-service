@@ -1,26 +1,16 @@
 services:
-  download-models:
-    image: ghcr.io/neozhu/kokoro-speech-service:latest
-    entrypoint: ["bash", "/app/scripts/download-models.sh"]
-    environment:
-      MODEL_DIR: /app/models
-    volumes:
-      - kokoro-models:/app/models
-    restart: "no"
-
   kokoro-tts:
     image: ghcr.io/neozhu/kokoro-speech-service:latest
-    depends_on:
-      download-models:
-        condition: service_completed_successfully
+    entrypoint: ["bash", "-c", "bash /app/scripts/download-models.sh && exec uvicorn app:app --host 0.0.0.0 --port 48731 --workers 1"]
     container_name: kokoro-tts
     ports:
       - "48731:48731"
     volumes:
-      - kokoro-models:/app/models:ro
+      - kokoro-models:/app/models
       - kokoro-cache:/app/cache
     environment:
       TTS_API_KEY: "${TTS_API_KEY:?Set TTS_API_KEY}"
+      MODEL_DIR: "/app/models"
       KOKORO_MODEL_PATH: "/app/models/kokoro-v1.0.onnx"
       KOKORO_VOICES_PATH: "/app/models/voices-v1.0.bin"
       TTS_CACHE_DIR: "/app/cache"

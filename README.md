@@ -96,9 +96,9 @@ docker compose up --build
 For Portainer on Docker Standalone, create a stack using
 `docker-compose.portainer.yml` and set `TTS_API_KEY` in the stack's environment
 variables. The stack pulls the GHCR image and uses named volumes for models
-(`kokoro-models`) and generated audio (`kokoro-cache`). A one-shot service
-downloads missing model files into the model volume before the TTS service
-starts. The Docker host must be able to reach the model download URL. Existing
+(`kokoro-models`) and generated audio (`kokoro-cache`). On startup, the service
+downloads missing model files into the model volume before starting the TTS server.
+The Docker host must be able to reach the model download URL. Existing
 files in the local Compose `./models` and `./cache` directories are not
 automatically migrated.
 
